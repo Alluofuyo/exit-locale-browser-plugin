@@ -18,7 +18,7 @@ WXT builds different browser targets with the `-b` flag. The Chrome target is de
 
 WXT generates `manifest.json` from `wxt.config.ts` plus entrypoint options. Permissions and host permissions belong in the WXT manifest config.
 
-WXT supports Vitest through `wxt/testing/vitest-plugin`, which configures aliases, extension API polyfills, and WXT environment globals for tests.
+Unit tests run through Vitest directly and use `wxt/testing/fake-browser` in a setup file for browser API mocks. This avoids coupling pure `src/` tests to WXT entrypoint discovery while still using WXT's browser mock.
 
 ## File Structure
 
@@ -29,7 +29,8 @@ Create or modify these files:
 - Create: `pnpm-workspace.yaml` for pnpm dependency build-script approvals.
 - Create: `tsconfig.json` for TypeScript strict mode and WXT-generated types.
 - Create: `wxt.config.ts` for React Vite plugin, manifest metadata, permissions, and host permissions.
-- Create: `vitest.config.ts` for WXT's Vitest plugin and test environment.
+- Create: `vitest.config.ts` for Vitest and test setup configuration.
+- Create: `src/test/setup.ts` for WXT fake browser setup.
 - Create: `entrypoints/background.ts` for runtime message handling, settings coordination, and IP check execution.
 - Create: `entrypoints/content.ts` for page-side rule requests.
 - Create: `entrypoints/popup/index.html`, `entrypoints/popup/main.tsx`, `entrypoints/popup/App.tsx`, `entrypoints/popup/style.css` for the popup UI.
@@ -56,6 +57,7 @@ Create or modify these files:
 - Create: `wxt.config.ts`
 - Create: `vitest.config.ts`
 - Create: `pnpm-workspace.yaml`
+- Create: `src/test/setup.ts`
 
 - [ ] **Step 1: Create `.gitignore`**
 
@@ -157,19 +159,36 @@ Write:
 
 ```ts
 import { defineConfig } from 'vitest/config';
-import { WxtVitest } from 'wxt/testing/vitest-plugin';
 
 export default defineConfig({
-  plugins: [WxtVitest()],
   test: {
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    setupFiles: ['src/test/setup.ts'],
   },
 });
 ```
 
-- [ ] **Step 6: Create `pnpm-workspace.yaml`**
+- [ ] **Step 6: Create `src/test/setup.ts`**
+
+Write:
+
+```ts
+import { beforeEach } from 'vitest';
+import { fakeBrowser } from 'wxt/testing/fake-browser';
+
+Object.assign(globalThis, {
+  browser: fakeBrowser,
+  chrome: fakeBrowser,
+});
+
+beforeEach(() => {
+  fakeBrowser.reset();
+});
+```
+
+- [ ] **Step 7: Create `pnpm-workspace.yaml`**
 
 Write:
 
@@ -179,7 +198,7 @@ allowBuilds:
   spawn-sync: true
 ```
 
-- [ ] **Step 7: Install dependencies**
+- [ ] **Step 8: Install dependencies**
 
 Run:
 
@@ -189,7 +208,7 @@ pnpm install
 
 Expected: `node_modules/` and `pnpm-lock.yaml` are created, and pnpm exits with code 0.
 
-- [ ] **Step 8: Verify dependency graph and WXT CLI**
+- [ ] **Step 9: Verify dependency graph and WXT CLI**
 
 Run:
 
@@ -207,12 +226,12 @@ pnpm exec wxt --version
 
 Expected: prints the installed WXT version. Full `pnpm typecheck` runs after entrypoints exist because WXT needs at least one entrypoint to generate `.wxt/tsconfig.json`.
 
-- [ ] **Step 9: Commit tooling**
+- [ ] **Step 10: Commit tooling**
 
 Run:
 
 ```bash
-git add .gitignore package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json wxt.config.ts vitest.config.ts
+git add .gitignore package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json wxt.config.ts vitest.config.ts src/test/setup.ts
 git commit -m "chore: add WXT React TypeScript tooling"
 ```
 
