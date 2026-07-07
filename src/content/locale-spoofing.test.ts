@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { LocaleProfile } from '../shared/types';
 import {
+  applyLocaleSpoofing,
   createGeolocationPosition,
   createLocaleSpoofingState,
   isLocaleSpoofingState,
@@ -111,5 +112,29 @@ describe('locale spoofing event payloads', () => {
   it('returns undefined for invalid payloads', () => {
     expect(parseLocaleSpoofingEventDetail('not-json')).toBeUndefined();
     expect(parseLocaleSpoofingEventDetail(JSON.stringify({ languages: 'en-US', timezone: 'UTC' }))).toBeUndefined();
+  });
+});
+
+describe('applyLocaleSpoofing', () => {
+  it('does not wrap Intl.DateTimeFormat more than once for identical state', () => {
+    const nativeDateTimeFormat = Intl.DateTimeFormat;
+
+    applyLocaleSpoofing({
+      languages: ['en-US', 'en'],
+      timezone: 'America/Los_Angeles',
+    });
+
+    const patchedDateTimeFormat = Intl.DateTimeFormat;
+
+    applyLocaleSpoofing({
+      languages: ['en-US', 'en'],
+      timezone: 'America/Los_Angeles',
+    });
+
+    expect(Intl.DateTimeFormat).toBe(patchedDateTimeFormat);
+    expect(Intl.DateTimeFormat).not.toBe(nativeDateTimeFormat);
+    expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe('America/Los_Angeles');
+
+    Intl.DateTimeFormat = nativeDateTimeFormat;
   });
 });

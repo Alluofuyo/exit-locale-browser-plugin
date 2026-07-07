@@ -2,6 +2,7 @@ import type { LocaleProfile } from '../shared/types';
 
 export const LOCALE_SPOOFING_EVENT = '__EXIT_LOCALE_APPLY__';
 const GEOLOCATION_ACCURACY_METERS = 50000;
+const REGISTRY_KEY = Symbol.for('exit-locale.locale-spoofing-registry');
 
 export interface LocaleSpoofingGeolocation {
   latitude: number;
@@ -26,6 +27,27 @@ export interface GeolocationPositionLike {
     speed: null;
   };
   timestamp: number;
+}
+
+interface LocaleSpoofingRegistry {
+  state?: LocaleSpoofingState;
+  navigatorLanguagesPatched?: boolean;
+  timezonePatched?: boolean;
+  geolocationPatched?: boolean;
+  nativeDateTimeFormat?: typeof Intl.DateTimeFormat;
+  watchId: number;
+}
+
+function getRegistry(): LocaleSpoofingRegistry {
+  const globalScope = globalThis as typeof globalThis & {
+    [REGISTRY_KEY]?: LocaleSpoofingRegistry;
+  };
+
+  globalScope[REGISTRY_KEY] ??= {
+    watchId: 0,
+  };
+
+  return globalScope[REGISTRY_KEY];
 }
 
 function hasCoordinate(value: number | undefined): value is number {
@@ -130,24 +152,37 @@ function patchNavigatorLanguages(state: LocaleSpoofingState): void {
     return;
   }
 
+  const registry = getRegistry();
+  if (registry.navigatorLanguagesPatched) {
+    return;
+  }
+
   const navigatorPrototype = Navigator.prototype;
-  defineGetter(navigatorPrototype, 'language', () => primaryLanguage);
-  defineGetter(navigatorPrototype, 'languages', () => [...state.languages]);
+  defineGetter(navigatorPrototype, 'language', () => getRegistry().state?.languages[0] ?? primaryLanguage);
+  defineGetter(navigatorPrototype, 'languages', () => [...(getRegistry().state?.languages ?? state.languages)]);
+  registry.navigatorLanguagesPatched = true;
 }
 
 function patchTimezone(state: LocaleSpoofingState): void {
-  const nativeDateTimeFormat = Intl.DateTimeFormat;
-  const timezone = state.timezone;
+  const registry = getRegistry();
+  if (registry.timezonePatched) {
+    return;
+  }
+
+  const nativeDateTimeFormat = registry.nativeDateTimeFormat ?? Intl.DateTimeFormat;
+  registry.nativeDateTimeFormat = nativeDateTimeFormat;
 
   const patchedDateTimeFormat = function DateTimeFormat(
     locales?: Intl.LocalesArgument,
     options?: Intl.DateTimeFormatOptions,
   ) {
+    const activeState = getRegistry().state ?? state;
+    const timezone = activeState.timezone;
     const nextOptions = {
       ...(options ?? {}),
       timeZone: options?.timeZone ?? timezone,
     };
-    const formatter = new nativeDateTimeFormat(locales ?? state.languages, nextOptions);
+    const formatter = new nativeDateTimeFormat(locales ?? activeState.languages, nextOptions);
     const nativeResolvedOptions = formatter.resolvedOptions.bind(formatter);
 
     Object.defineProperty(formatter, 'resolvedOptions', {
@@ -165,6 +200,7 @@ function patchTimezone(state: LocaleSpoofingState): void {
   (patchedDateTimeFormat as typeof patchedDateTimeFormat & { prototype: Intl.DateTimeFormat }).prototype =
     nativeDateTimeFormat.prototype;
   Intl.DateTimeFormat = patchedDateTimeFormat;
+  registry.timezonePatched = true;
 }
 
 function patchGeolocation(state: LocaleSpoofingState): void {
@@ -172,15 +208,25 @@ function patchGeolocation(state: LocaleSpoofingState): void {
     return;
   }
 
-  let watchId = 0;
+  const registry = getRegistry();
+  if (registry.geolocationPatched) {
+    return;
+  }
+
   const geolocation = {
     getCurrentPosition(success: PositionCallback) {
-      queueMicrotask(() => success(createGeolocationPosition(state.geolocation!) as GeolocationPosition));
+      const activeGeolocation = getRegistry().state?.geolocation ?? state.geolocation;
+      if (activeGeolocation) {
+        queueMicrotask(() => success(createGeolocationPosition(activeGeolocation) as GeolocationPosition));
+      }
     },
     watchPosition(success: PositionCallback) {
-      watchId += 1;
-      const currentWatchId = watchId;
-      queueMicrotask(() => success(createGeolocationPosition(state.geolocation!) as GeolocationPosition));
+      registry.watchId += 1;
+      const currentWatchId = registry.watchId;
+      const activeGeolocation = getRegistry().state?.geolocation ?? state.geolocation;
+      if (activeGeolocation) {
+        queueMicrotask(() => success(createGeolocationPosition(activeGeolocation) as GeolocationPosition));
+      }
       return currentWatchId;
     },
     clearWatch() {
@@ -189,6 +235,7 @@ function patchGeolocation(state: LocaleSpoofingState): void {
   } satisfies Partial<Geolocation>;
 
   defineGetter(Navigator.prototype, 'geolocation', () => geolocation);
+  registry.geolocationPatched = true;
 }
 
 export function applyLocaleSpoofing(state: LocaleSpoofingState): void {
@@ -196,6 +243,7 @@ export function applyLocaleSpoofing(state: LocaleSpoofingState): void {
     return;
   }
 
+  getRegistry().state = state;
   patchNavigatorLanguages(state);
   patchTimezone(state);
   patchGeolocation(state);

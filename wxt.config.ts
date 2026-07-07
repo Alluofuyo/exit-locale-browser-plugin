@@ -11,8 +11,20 @@ export default defineConfig({
       description: 'Inspect current exit IP and apply matching language, timezone, and geolocation spoofing.',
       permissions: ['storage', 'tabs'],
       host_permissions: ['https://ipapi.co/*'],
+      icons: {
+        16: 'icons/icon-16.png',
+        32: 'icons/icon-32.png',
+        48: 'icons/icon-48.png',
+        128: 'icons/icon-128.png',
+      },
       action: {
         default_title: 'Exit Locale',
+        default_icon: {
+          16: 'icons/icon-16.png',
+          32: 'icons/icon-32.png',
+          48: 'icons/icon-48.png',
+          128: 'icons/icon-128.png',
+        },
       },
     };
 

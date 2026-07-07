@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { sendRuntimeMessage } from '../../src/browser/runtime';
-import type { ExtensionSettings } from '../../src/shared/types';
+import {
+  parseLanguagesInput,
+  parseOptionalNumberInput,
+  removeSiteRule,
+  upsertDefaultLocaleProfile,
+  upsertSiteRule,
+} from '../../src/options/settings-editor';
+import type { ExtensionSettings, LocaleProfile } from '../../src/shared/types';
 
 type OptionsState =
   | { status: 'loading' }
@@ -9,6 +16,7 @@ type OptionsState =
 
 export function App() {
   const [state, setState] = useState<OptionsState>({ status: 'loading' });
+  const [newRulePattern, setNewRulePattern] = useState('');
 
   useEffect(() => {
     void sendRuntimeMessage<ExtensionSettings>({ type: 'GET_SETTINGS' }).then((response) => {
@@ -53,6 +61,34 @@ export function App() {
   const defaultLocaleProfile =
     settings.localeProfiles.find((profile) => profile.id === settings.defaultLocaleProfileId) ??
     settings.localeProfiles[0];
+  const activeProfile: LocaleProfile = defaultLocaleProfile ?? {
+    id: settings.defaultLocaleProfileId || 'default',
+    name: 'Custom locale',
+    languages: ['en-US'],
+    timezone: 'UTC',
+  };
+
+  function saveActiveProfile(input: Partial<LocaleProfile>) {
+    void save(
+      upsertDefaultLocaleProfile(settings, {
+        name: input.name ?? activeProfile.name,
+        languages: input.languages ?? activeProfile.languages,
+        timezone: input.timezone ?? activeProfile.timezone,
+        latitude: 'latitude' in input ? input.latitude : activeProfile.latitude,
+        longitude: 'longitude' in input ? input.longitude : activeProfile.longitude,
+      }),
+    );
+  }
+
+  function addSiteRule(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!newRulePattern.trim()) {
+      return;
+    }
+
+    void save(upsertSiteRule(settings, newRulePattern));
+    setNewRulePattern('');
+  }
 
   return (
     <main className="options">
@@ -134,32 +170,108 @@ export function App() {
 
       <section>
         <h2>Active spoofing profile</h2>
-        {defaultLocaleProfile ? (
-          <dl className="profile-details">
-            <div>
-              <dt>Name</dt>
-              <dd>{defaultLocaleProfile.name}</dd>
-            </div>
-            <div>
-              <dt>Languages</dt>
-              <dd>{defaultLocaleProfile.languages.join(', ') || 'Unknown'}</dd>
-            </div>
-            <div>
-              <dt>Timezone</dt>
-              <dd>{defaultLocaleProfile.timezone}</dd>
-            </div>
-            <div>
-              <dt>Geolocation</dt>
-              <dd>
-                {typeof defaultLocaleProfile.latitude === 'number' &&
-                typeof defaultLocaleProfile.longitude === 'number'
-                  ? `${defaultLocaleProfile.latitude.toFixed(4)}, ${defaultLocaleProfile.longitude.toFixed(4)}`
-                  : 'Not set'}
-              </dd>
-            </div>
-          </dl>
+        <label>
+          Name
+          <input
+            type="text"
+            defaultValue={activeProfile.name}
+            onBlur={(event) => saveActiveProfile({ name: event.currentTarget.value })}
+          />
+        </label>
+
+        <label>
+          Languages
+          <input
+            type="text"
+            defaultValue={activeProfile.languages.join(', ')}
+            onBlur={(event) => saveActiveProfile({ languages: parseLanguagesInput(event.currentTarget.value) })}
+          />
+        </label>
+
+        <label>
+          Timezone
+          <input
+            type="text"
+            defaultValue={activeProfile.timezone}
+            onBlur={(event) => saveActiveProfile({ timezone: event.currentTarget.value })}
+          />
+        </label>
+
+        <div className="split">
+          <label>
+            Latitude
+            <input
+              type="number"
+              step="0.0001"
+              defaultValue={activeProfile.latitude ?? ''}
+              onBlur={(event) =>
+                saveActiveProfile({
+                  latitude: parseOptionalNumberInput(event.currentTarget.value),
+                  longitude: activeProfile.longitude,
+                })
+              }
+            />
+          </label>
+
+          <label>
+            Longitude
+            <input
+              type="number"
+              step="0.0001"
+              defaultValue={activeProfile.longitude ?? ''}
+              onBlur={(event) =>
+                saveActiveProfile({
+                  latitude: activeProfile.latitude,
+                  longitude: parseOptionalNumberInput(event.currentTarget.value),
+                })
+              }
+            />
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Site rules</h2>
+        <form className="rule-form" onSubmit={addSiteRule}>
+          <label>
+            Hostname pattern
+            <input
+              type="text"
+              value={newRulePattern}
+              placeholder="example.com"
+              onChange={(event) => setNewRulePattern(event.currentTarget.value)}
+            />
+          </label>
+          <button type="submit">Add rule</button>
+        </form>
+
+        {settings.siteRules.length > 0 ? (
+          <div className="rule-list">
+            {settings.siteRules.map((rule) => (
+              <div className="rule-row" key={rule.id}>
+                <label className="row">
+                  <span>{rule.hostnamePattern}</span>
+                  <input
+                    type="checkbox"
+                    checked={rule.enabled}
+                    onChange={(event) =>
+                      void save({
+                        ...settings,
+                        siteRules: settings.siteRules.map((item) =>
+                          item.id === rule.id ? { ...item, enabled: event.currentTarget.checked } : item,
+                        ),
+                      })
+                    }
+                  />
+                </label>
+                <button type="button" onClick={() => void save(removeSiteRule(settings, rule.id))}>
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
         ) : (
-          <p className="error">No locale profile is available.</p>
+          <p className="muted">No site rules configured.</p>
         )}
       </section>
     </main>
