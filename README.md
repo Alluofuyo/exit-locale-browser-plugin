@@ -1,6 +1,6 @@
 # Exit Locale Browser Plugin
 
-WXT + React + TypeScript browser extension scaffold for Chrome, Edge, and Firefox.
+Browser extension for Chrome, Edge, and Firefox that checks the current network exit IP and helps align browser language, timezone, and geolocation signals with that exit location.
 
 ## Features
 

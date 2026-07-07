@@ -1,6 +1,7 @@
 {
   "name": "exit-locale-browser-plugin",
   "version": "0.1.0",
+  "description": "Browser extension that checks the current exit IP and applies matching language, timezone, and geolocation spoofing.",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.9.0",
