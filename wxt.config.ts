@@ -13,5 +13,13 @@ export default defineConfig({
     action: {
       default_title: 'Locale Proxy',
     },
+    browser_specific_settings: {
+      gecko: {
+        id: 'locale-proxy-browser-plugin@example.org',
+        data_collection_permissions: {
+          required: ['locationInfo'],
+        },
+      },
+    },
   }),
 });
