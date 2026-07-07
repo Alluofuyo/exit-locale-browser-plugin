@@ -14,8 +14,37 @@ interface IpApiResponse {
   org?: string;
   asn?: string;
   timezone?: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  languages?: string | null;
   error?: boolean;
   reason?: string;
+}
+
+function toNumber(value: number | string | null | undefined): number | undefined {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+}
+
+function parseLanguages(value: string | null | undefined): string[] | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const languages = value
+    .split(',')
+    .map((language) => language.trim())
+    .filter(Boolean);
+
+  return languages.length > 0 ? languages : undefined;
 }
 
 function normalizeIpApiResponse(data: IpApiResponse): IpCheckResult {
@@ -43,6 +72,9 @@ function normalizeIpApiResponse(data: IpApiResponse): IpCheckResult {
     isp: data.org,
     asn: data.asn,
     timezone: data.timezone,
+    latitude: toNumber(data.latitude),
+    longitude: toNumber(data.longitude),
+    languages: parseLanguages(data.languages),
   };
 }
 

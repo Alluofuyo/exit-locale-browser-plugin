@@ -7,6 +7,8 @@ const MESSAGE_TYPES = new Set<RuntimeMessage['type']>([
   'GET_EFFECTIVE_RULE',
   'CHECK_CURRENT_EXIT',
   'GET_LAST_EXIT_CHECK',
+  'GET_LOCALE_RECOMMENDATION',
+  'APPLY_LOCALE_RECOMMENDATION',
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {

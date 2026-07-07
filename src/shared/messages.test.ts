@@ -6,6 +6,8 @@ describe('isRuntimeMessage', () => {
     expect(isRuntimeMessage({ type: 'PING' })).toBe(true);
     expect(isRuntimeMessage({ type: 'GET_SETTINGS' })).toBe(true);
     expect(isRuntimeMessage({ type: 'GET_EFFECTIVE_RULE', url: 'https://example.com' })).toBe(true);
+    expect(isRuntimeMessage({ type: 'GET_LOCALE_RECOMMENDATION' })).toBe(true);
+    expect(isRuntimeMessage({ type: 'APPLY_LOCALE_RECOMMENDATION' })).toBe(true);
   });
 
   it('rejects unknown or malformed messages', () => {

@@ -75,7 +75,36 @@ export interface IpCheckResult {
   isp?: string;
   asn?: string;
   timezone?: string;
+  latitude?: number;
+  longitude?: number;
+  languages?: string[];
   error?: IpCheckError;
+}
+
+export type LocaleRecommendationConfidence = 'high' | 'medium' | 'low';
+
+export interface LocaleRecommendationSource {
+  providerId: string;
+  ip?: string;
+  country?: string;
+  countryCode?: string;
+}
+
+export interface GeolocationRecommendation {
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number;
+  label: string;
+}
+
+export interface LocaleRecommendation {
+  status: 'available' | 'unavailable';
+  confidence: LocaleRecommendationConfidence;
+  source: LocaleRecommendationSource;
+  languages: string[];
+  timezone?: string;
+  geolocation?: GeolocationRecommendation;
+  reason?: string;
 }
 
 export type RuntimeMessage =
@@ -84,7 +113,9 @@ export type RuntimeMessage =
   | { type: 'SAVE_SETTINGS'; settings: ExtensionSettings }
   | { type: 'GET_EFFECTIVE_RULE'; url: string }
   | { type: 'CHECK_CURRENT_EXIT'; force?: boolean }
-  | { type: 'GET_LAST_EXIT_CHECK' };
+  | { type: 'GET_LAST_EXIT_CHECK' }
+  | { type: 'GET_LOCALE_RECOMMENDATION' }
+  | { type: 'APPLY_LOCALE_RECOMMENDATION' };
 
 export type RuntimeResponse<T> =
   | { ok: true; data: T }

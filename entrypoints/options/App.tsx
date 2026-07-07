@@ -50,6 +50,9 @@ export function App() {
   }
 
   const { settings, saved } = state;
+  const defaultLocaleProfile =
+    settings.localeProfiles.find((profile) => profile.id === settings.defaultLocaleProfileId) ??
+    settings.localeProfiles[0];
 
   return (
     <main className="options">
@@ -127,6 +130,37 @@ export function App() {
             }
           />
         </label>
+      </section>
+
+      <section>
+        <h2>Active spoofing profile</h2>
+        {defaultLocaleProfile ? (
+          <dl className="profile-details">
+            <div>
+              <dt>Name</dt>
+              <dd>{defaultLocaleProfile.name}</dd>
+            </div>
+            <div>
+              <dt>Languages</dt>
+              <dd>{defaultLocaleProfile.languages.join(', ') || 'Unknown'}</dd>
+            </div>
+            <div>
+              <dt>Timezone</dt>
+              <dd>{defaultLocaleProfile.timezone}</dd>
+            </div>
+            <div>
+              <dt>Geolocation</dt>
+              <dd>
+                {typeof defaultLocaleProfile.latitude === 'number' &&
+                typeof defaultLocaleProfile.longitude === 'number'
+                  ? `${defaultLocaleProfile.latitude.toFixed(4)}, ${defaultLocaleProfile.longitude.toFixed(4)}`
+                  : 'Not set'}
+              </dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="error">No locale profile is available.</p>
+        )}
       </section>
     </main>
   );

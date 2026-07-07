@@ -66,6 +66,28 @@ h1 {
   padding: 14px;
 }
 
+.recommendation-panel {
+  background: white;
+  border: 1px solid #dfe4ee;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.recommendation-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.recommendation-title {
+  font-size: 16px;
+  font-weight: 800;
+  margin-top: 2px;
+  text-transform: capitalize;
+}
+
 .label,
 dt {
   color: #687386;

@@ -1,11 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 import { sendRuntimeMessage } from '../../src/browser/runtime';
-import type { ExtensionSettings, IpCheckResult } from '../../src/shared/types';
+import type { ExtensionSettings, IpCheckResult, LocaleRecommendation } from '../../src/shared/types';
 
 type PopupState =
   | { status: 'loading' }
-  | { status: 'ready'; settings: ExtensionSettings; result: IpCheckResult; refreshing: boolean }
+  | {
+      status: 'ready';
+      settings: ExtensionSettings;
+      result: IpCheckResult;
+      recommendation: LocaleRecommendation;
+      refreshing: boolean;
+      applying: boolean;
+    }
   | { status: 'error'; message: string };
+
+interface ApplyLocaleRecommendationResponse {
+  settings: ExtensionSettings;
+  recommendation: LocaleRecommendation;
+}
 
 function getLocationLabel(result: IpCheckResult): string {
   return [result.city, result.region, result.country].filter(Boolean).join(', ') || 'Unknown location';
@@ -44,13 +56,47 @@ export function App() {
       return;
     }
 
+    const recommendationResponse = await sendRuntimeMessage<LocaleRecommendation>({
+      type: 'GET_LOCALE_RECOMMENDATION',
+    });
+
+    if (!recommendationResponse.ok) {
+      setState({ status: 'error', message: recommendationResponse.error.message });
+      return;
+    }
+
     setState({
       status: 'ready',
       settings: settingsResponse.data,
       result: resultResponse.data,
+      recommendation: recommendationResponse.data,
       refreshing: false,
+      applying: false,
     });
   }, []);
+
+  async function applyRecommendation() {
+    if (state.status !== 'ready' || state.recommendation.status !== 'available') {
+      return;
+    }
+
+    setState({ ...state, applying: true });
+    const response = await sendRuntimeMessage<ApplyLocaleRecommendationResponse>({
+      type: 'APPLY_LOCALE_RECOMMENDATION',
+    });
+
+    if (!response.ok) {
+      setState({ status: 'error', message: response.error.message });
+      return;
+    }
+
+    setState({
+      ...state,
+      settings: response.data.settings,
+      recommendation: response.data.recommendation,
+      applying: false,
+    });
+  }
 
   useEffect(() => {
     void load(false).catch((error: unknown) => {
@@ -83,8 +129,9 @@ export function App() {
     );
   }
 
-  const { result, settings, refreshing } = state;
+  const { result, settings, recommendation, refreshing, applying } = state;
   const isSuccess = result.status === 'success';
+  const canApplyRecommendation = recommendation.status === 'available';
 
   return (
     <main className="popup">
@@ -119,6 +166,44 @@ export function App() {
           <dd>{formatCheckedAt(result.checkedAt)}</dd>
         </div>
       </dl>
+
+      <section className="recommendation-panel">
+        <div className="recommendation-header">
+          <div>
+            <div className="label">Recommended spoofing</div>
+            <div className="recommendation-title">
+              {canApplyRecommendation ? `${recommendation.confidence} confidence` : 'Unavailable'}
+            </div>
+          </div>
+        </div>
+
+        {canApplyRecommendation ? (
+          <dl className="details">
+            <div>
+              <dt>Languages</dt>
+              <dd>{recommendation.languages.join(', ') || 'Unknown'}</dd>
+            </div>
+            <div>
+              <dt>Timezone</dt>
+              <dd>{recommendation.timezone || 'Unknown'}</dd>
+            </div>
+            <div>
+              <dt>Geolocation</dt>
+              <dd>
+                {recommendation.geolocation
+                  ? `${recommendation.geolocation.label} (${recommendation.geolocation.latitude.toFixed(4)}, ${recommendation.geolocation.longitude.toFixed(4)})`
+                  : 'Unknown'}
+              </dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="muted">{recommendation.reason}</p>
+        )}
+      </section>
+
+      <button type="button" disabled={!canApplyRecommendation || applying} onClick={() => void applyRecommendation()}>
+        {applying ? 'Applying...' : 'Apply recommendation'}
+      </button>
 
       <button type="button" disabled={refreshing} onClick={() => void load(true)}>
         {refreshing ? 'Refreshing...' : 'Refresh'}

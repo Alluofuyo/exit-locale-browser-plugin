@@ -65,6 +65,27 @@ select {
   padding: 9px 10px;
 }
 
+.profile-details {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.profile-details div {
+  display: grid;
+  gap: 4px;
+}
+
+dt {
+  color: #667085;
+  font-size: 13px;
+}
+
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .saved {
   background: #d9fbe6;
   border-radius: 999px;

@@ -1,3 +1,4 @@
+import { applyLocaleRecommendationToSettings, buildLocaleRecommendation } from '../src/core/locale-recommendation';
 import { resolveEffectiveRule } from '../src/core/rules';
 import { checkCurrentExit, isIpCheckFresh } from '../src/ip-check/checker';
 import { getIpCheckProvider } from '../src/ip-check/providers';
@@ -20,6 +21,26 @@ async function handleMessage(message: RuntimeMessage): Promise<RuntimeResponse<u
     }
     case 'GET_LAST_EXIT_CHECK':
       return createSuccessResponse(await loadLastIpCheck());
+    case 'GET_LOCALE_RECOMMENDATION':
+      return createSuccessResponse(buildLocaleRecommendation(await loadLastIpCheck()));
+    case 'APPLY_LOCALE_RECOMMENDATION': {
+      const settings = await loadSettings();
+      const recommendation = buildLocaleRecommendation(await loadLastIpCheck());
+
+      if (recommendation.status !== 'available') {
+        return createErrorResponse(
+          'recommendation_unavailable',
+          recommendation.reason ?? 'No locale recommendation is available.',
+        );
+      }
+
+      const nextSettings = applyLocaleRecommendationToSettings(settings, recommendation);
+      await saveSettings(nextSettings);
+      return createSuccessResponse({
+        settings: nextSettings,
+        recommendation,
+      });
+    }
     case 'CHECK_CURRENT_EXIT': {
       const settings = await loadSettings();
       const previous = await loadLastIpCheck();
