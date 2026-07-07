@@ -16,9 +16,9 @@
     "zip:firefox": "wxt zip -b firefox",
     "icons:generate": "node scripts/generate-icons.mjs",
     "e2e:smoke": "pnpm build:chrome && env -u NO_COLOR playwright test e2e/smoke.spec.ts --reporter=line",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "test": "wxt prepare && vitest run",
+    "test:watch": "wxt prepare && vitest",
+    "typecheck": "wxt prepare && tsc --noEmit"
   },
   "dependencies": {
     "react": "^19.0.0",
