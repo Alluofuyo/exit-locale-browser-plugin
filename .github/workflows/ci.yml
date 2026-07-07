@@ -25,14 +25,14 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 26.4.0
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Unit tests
-        run: pnpm test
+        run: pnpm exec vitest run --reporter=verbose
 
       - name: Typecheck
         run: pnpm typecheck
