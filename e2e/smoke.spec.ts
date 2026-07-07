@@ -42,6 +42,12 @@ interface LocaleSnapshot {
   };
 }
 
+interface EarlyLocaleSnapshot {
+  language: string;
+  languages: string[];
+  timezone: string;
+}
+
 interface ChromeStorageApi {
   runtime: {
     lastError?: {
@@ -107,7 +113,20 @@ async function seedExtensionSettings(serviceWorker: Worker, settings: ExtensionS
 async function startSmokeServer(): Promise<{ server: Server; url: string }> {
   const server = createServer((_request, response) => {
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    response.end('<!doctype html><html><head><title>Exit Locale Smoke</title></head><body>ok</body></html>');
+    response.end(`<!doctype html>
+      <html>
+        <head>
+          <title>Exit Locale Smoke</title>
+          <script>
+            window.__earlyLocaleSnapshot = {
+              language: navigator.language,
+              languages: Array.from(navigator.languages),
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            };
+          </script>
+        </head>
+        <body>ok</body>
+      </html>`);
   });
 
   await new Promise<void>((resolve) => {
@@ -157,6 +176,38 @@ async function readLocaleSnapshot(page: Page): Promise<LocaleSnapshot> {
   );
 }
 
+async function readEarlyLocaleSnapshot(page: Page): Promise<EarlyLocaleSnapshot | undefined> {
+  return page.evaluate(() => {
+    const snapshot = (window as typeof window & { __earlyLocaleSnapshot?: EarlyLocaleSnapshot }).__earlyLocaleSnapshot;
+    return snapshot ? { ...snapshot, languages: [...snapshot.languages] } : undefined;
+  });
+}
+
+async function expectEarlySpoofedLocale(page: Page): Promise<void> {
+  await expect(readEarlyLocaleSnapshot(page)).resolves.toEqual({
+    language: 'ja-JP',
+    languages: ['ja-JP', 'ja'],
+    timezone: 'Asia/Tokyo',
+  });
+}
+
+async function expectSpoofedLocale(page: Page): Promise<void> {
+  await expect
+    .poll(() => readLocaleSnapshot(page), {
+      timeout: 10000,
+    })
+    .toEqual({
+      language: 'ja-JP',
+      languages: ['ja-JP', 'ja'],
+      timezone: 'Asia/Tokyo',
+      geolocation: {
+        latitude: 35.6895,
+        longitude: 139.6917,
+        accuracy: GEOLOCATION_ACCURACY_METERS,
+      },
+    });
+}
+
 test('spoofs page language, timezone, and geolocation from the active locale profile', async ({}, testInfo) => {
   const context = await chromium.launchPersistentContext(testInfo.outputPath('user-data-dir'), {
     channel: 'chromium',
@@ -174,20 +225,12 @@ test('spoofs page language, timezone, and geolocation from the active locale pro
     const page = await context.newPage();
     await page.goto(url, { waitUntil: 'domcontentloaded' });
 
-    await expect
-      .poll(() => readLocaleSnapshot(page), {
-        timeout: 10000,
-      })
-      .toEqual({
-        language: 'ja-JP',
-        languages: ['ja-JP', 'ja'],
-        timezone: 'Asia/Tokyo',
-        geolocation: {
-          latitude: 35.6895,
-          longitude: 139.6917,
-          accuracy: GEOLOCATION_ACCURACY_METERS,
-        },
-      });
+    await expectSpoofedLocale(page);
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+
+    await expectEarlySpoofedLocale(page);
+    await expectSpoofedLocale(page);
   } finally {
     await closeServer(server);
     await context.close();

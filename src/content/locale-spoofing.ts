@@ -1,6 +1,8 @@
 import type { LocaleProfile } from '../shared/types';
 
 export const LOCALE_SPOOFING_EVENT = '__EXIT_LOCALE_APPLY__';
+export const LOCALE_SPOOFING_CLEAR_EVENT = '__EXIT_LOCALE_CLEAR__';
+export const LOCALE_SPOOFING_CACHE_KEY = '__exit_locale_spoofing_state__';
 const GEOLOCATION_ACCURACY_METERS = 50000;
 const REGISTRY_KEY = Symbol.for('exit-locale.locale-spoofing-registry');
 
@@ -35,8 +37,11 @@ interface LocaleSpoofingRegistry {
   timezonePatched?: boolean;
   geolocationPatched?: boolean;
   nativeDateTimeFormat?: typeof Intl.DateTimeFormat;
+  patchedDateTimeFormat?: typeof Intl.DateTimeFormat;
   watchId: number;
 }
+
+type LocaleSpoofingCacheStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 function getRegistry(): LocaleSpoofingRegistry {
   const globalScope = globalThis as typeof globalThis & {
@@ -135,6 +140,75 @@ export function parseLocaleSpoofingEventDetail(detail: unknown): LocaleSpoofingS
   }
 }
 
+function getSessionStorage(): LocaleSpoofingCacheStorage | undefined {
+  try {
+    return (globalThis as typeof globalThis & { sessionStorage?: LocaleSpoofingCacheStorage }).sessionStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+export function readCachedLocaleSpoofingState(
+  storage = getSessionStorage(),
+): LocaleSpoofingState | undefined {
+  if (!storage) {
+    return undefined;
+  }
+
+  try {
+    const cachedState = storage.getItem(LOCALE_SPOOFING_CACHE_KEY);
+    if (!cachedState) {
+      return undefined;
+    }
+
+    const state = parseLocaleSpoofingEventDetail(cachedState);
+    if (!state) {
+      storage.removeItem(LOCALE_SPOOFING_CACHE_KEY);
+    }
+
+    return state;
+  } catch {
+    return undefined;
+  }
+}
+
+export function writeCachedLocaleSpoofingState(
+  state: LocaleSpoofingState,
+  storage = getSessionStorage(),
+): void {
+  if (!storage) {
+    return;
+  }
+
+  try {
+    storage.setItem(LOCALE_SPOOFING_CACHE_KEY, serializeLocaleSpoofingState(state));
+  } catch {
+    // Some pages expose sessionStorage but reject writes, for example opaque origins.
+  }
+}
+
+export function clearCachedLocaleSpoofingState(storage = getSessionStorage()): void {
+  if (!storage) {
+    return;
+  }
+
+  try {
+    storage.removeItem(LOCALE_SPOOFING_CACHE_KEY);
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
+
+export function applyCachedLocaleSpoofing(storage = getSessionStorage()): boolean {
+  const state = readCachedLocaleSpoofingState(storage);
+  if (!state) {
+    return false;
+  }
+
+  applyLocaleSpoofing(state);
+  return true;
+}
+
 function defineGetter<TObject extends object, TValue>(
   object: TObject,
   property: string,
@@ -165,7 +239,7 @@ function patchNavigatorLanguages(state: LocaleSpoofingState): void {
 
 function patchTimezone(state: LocaleSpoofingState): void {
   const registry = getRegistry();
-  if (registry.timezonePatched) {
+  if (registry.timezonePatched && Intl.DateTimeFormat === registry.patchedDateTimeFormat) {
     return;
   }
 
@@ -201,6 +275,7 @@ function patchTimezone(state: LocaleSpoofingState): void {
     nativeDateTimeFormat.prototype;
   Intl.DateTimeFormat = patchedDateTimeFormat;
   registry.timezonePatched = true;
+  registry.patchedDateTimeFormat = patchedDateTimeFormat;
 }
 
 function patchGeolocation(state: LocaleSpoofingState): void {

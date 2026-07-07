@@ -1,8 +1,10 @@
 import { DEFAULT_SETTINGS, EMPTY_IP_CHECK_RESULT } from '../shared/defaults';
+import { SETTINGS_KEY } from '../shared/storage-keys';
 import type { ExtensionSettings, IpCheckResult } from '../shared/types';
 
-const SETTINGS_KEY = 'extensionSettings';
 const LAST_IP_CHECK_KEY = 'lastIpCheck';
+
+export { SETTINGS_KEY };
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
