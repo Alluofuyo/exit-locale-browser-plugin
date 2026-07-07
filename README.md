@@ -65,6 +65,19 @@ Run TypeScript checks:
 pnpm typecheck
 ```
 
+Run the Chromium extension smoke test:
+
+```bash
+pnpm e2e:smoke
+```
+
+The smoke test uses Playwright's bundled Chromium and loads `.output/chrome-mv3` as an unpacked extension. On a fresh machine, install the browser runtime once:
+
+```bash
+pnpm exec playwright install chromium
+pnpm exec playwright install-deps chromium
+```
+
 ## Loading The Extension
 
 Chrome or Edge:

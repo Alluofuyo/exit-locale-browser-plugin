@@ -3,4 +3,6 @@ node_modules/
 .wxt/
 coverage/
 dist/
+playwright-report/
+test-results/
 *.log

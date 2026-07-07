@@ -1,0 +1,195 @@
+import { chromium, expect, type BrowserContext, type Page, type Worker, test } from '@playwright/test';
+import { createServer, type Server } from 'node:http';
+import path from 'node:path';
+import type { AddressInfo } from 'node:net';
+
+import type { ExtensionSettings } from '../src/shared/types';
+
+const EXTENSION_SETTINGS_KEY = 'extensionSettings';
+const GEOLOCATION_ACCURACY_METERS = 50000;
+
+const smokeSettings: ExtensionSettings = {
+  schemaVersion: 1,
+  enabled: true,
+  defaultLocaleProfileId: 'smoke-profile',
+  localeProfiles: [
+    {
+      id: 'smoke-profile',
+      name: 'Smoke profile',
+      languages: ['ja-JP', 'ja'],
+      timezone: 'Asia/Tokyo',
+      latitude: 35.6895,
+      longitude: 139.6917,
+    },
+  ],
+  siteRules: [],
+  ipCheck: {
+    providerId: 'ipapi',
+    timeoutMs: 5000,
+    cacheTtlMs: 60000,
+    autoRefreshOnPopupOpen: true,
+  },
+};
+
+interface LocaleSnapshot {
+  language: string;
+  languages: string[];
+  timezone: string;
+  geolocation: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  };
+}
+
+interface ChromeStorageApi {
+  runtime: {
+    lastError?: {
+      message?: string;
+    };
+  };
+  storage: {
+    local: {
+      clear(callback: () => void): void;
+      set(items: Record<string, unknown>, callback: () => void): void;
+    };
+  };
+}
+
+function getExtensionPath(): string {
+  return path.resolve('.output/chrome-mv3');
+}
+
+async function getExtensionServiceWorker(context: BrowserContext): Promise<Worker> {
+  const existingWorker = context.serviceWorkers().find((worker) => worker.url().startsWith('chrome-extension://'));
+  if (existingWorker) {
+    return existingWorker;
+  }
+
+  return context.waitForEvent('serviceworker', {
+    predicate: (worker) => worker.url().startsWith('chrome-extension://'),
+  });
+}
+
+async function seedExtensionSettings(serviceWorker: Worker, settings: ExtensionSettings): Promise<void> {
+  await serviceWorker.evaluate(
+    async ({ key, value }) => {
+      const chromeApi = (globalThis as typeof globalThis & { chrome: ChromeStorageApi }).chrome;
+
+      await new Promise<void>((resolve, reject) => {
+        chromeApi.storage.local.clear(() => {
+          const error = chromeApi.runtime.lastError;
+          if (error) {
+            reject(new Error(error.message ?? 'Failed to clear extension storage.'));
+            return;
+          }
+
+          resolve();
+        });
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        chromeApi.storage.local.set({ [key]: value }, () => {
+          const error = chromeApi.runtime.lastError;
+          if (error) {
+            reject(new Error(error.message ?? 'Failed to seed extension settings.'));
+            return;
+          }
+
+          resolve();
+        });
+      });
+    },
+    { key: EXTENSION_SETTINGS_KEY, value: settings },
+  );
+}
+
+async function startSmokeServer(): Promise<{ server: Server; url: string }> {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    response.end('<!doctype html><html><head><title>Exit Locale Smoke</title></head><body>ok</body></html>');
+  });
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, '127.0.0.1', resolve);
+  });
+
+  const address = server.address() as AddressInfo;
+  return {
+    server,
+    url: `http://127.0.0.1:${address.port}/`,
+  };
+}
+
+async function closeServer(server: Server): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
+}
+
+async function readLocaleSnapshot(page: Page): Promise<LocaleSnapshot> {
+  return page.evaluate(
+    () =>
+      new Promise<LocaleSnapshot>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            resolve({
+              language: navigator.language,
+              languages: [...navigator.languages],
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              geolocation: {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+              },
+            });
+          },
+          (error) => reject(new Error(error.message)),
+        );
+      }),
+  );
+}
+
+test('spoofs page language, timezone, and geolocation from the active locale profile', async ({}, testInfo) => {
+  const context = await chromium.launchPersistentContext(testInfo.outputPath('user-data-dir'), {
+    channel: 'chromium',
+    args: [
+      `--disable-extensions-except=${getExtensionPath()}`,
+      `--load-extension=${getExtensionPath()}`,
+    ],
+  });
+  const { server, url } = await startSmokeServer();
+
+  try {
+    const serviceWorker = await getExtensionServiceWorker(context);
+    await seedExtensionSettings(serviceWorker, smokeSettings);
+
+    const page = await context.newPage();
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+
+    await expect
+      .poll(() => readLocaleSnapshot(page), {
+        timeout: 10000,
+      })
+      .toEqual({
+        language: 'ja-JP',
+        languages: ['ja-JP', 'ja'],
+        timezone: 'Asia/Tokyo',
+        geolocation: {
+          latitude: 35.6895,
+          longitude: 139.6917,
+          accuracy: GEOLOCATION_ACCURACY_METERS,
+        },
+      });
+  } finally {
+    await closeServer(server);
+    await context.close();
+  }
+});
