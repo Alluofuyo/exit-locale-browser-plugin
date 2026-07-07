@@ -7,6 +7,7 @@ import type { ExtensionSettings } from '../src/shared/types';
 
 const EXTENSION_SETTINGS_KEY = 'extensionSettings';
 const GEOLOCATION_ACCURACY_METERS = 50000;
+const GEOLOCATION_READ_TIMEOUT_MS = 1000;
 
 const smokeSettings: ExtensionSettings = {
   schemaVersion: 1,
@@ -35,17 +36,25 @@ interface LocaleSnapshot {
   language: string;
   languages: string[];
   timezone: string;
-  geolocation: {
-    latitude: number;
-    longitude: number;
-    accuracy: number;
-  };
+  geolocation: GeolocationSnapshot;
 }
 
 interface EarlyLocaleSnapshot {
   language: string;
   languages: string[];
   timezone: string;
+}
+
+type LocaleEnvironmentSnapshot = EarlyLocaleSnapshot;
+
+interface GeolocationSnapshot {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+}
+
+interface GeolocationErrorSnapshot {
+  error: string;
 }
 
 interface ChromeStorageApi {
@@ -154,25 +163,50 @@ async function closeServer(server: Server): Promise<void> {
 }
 
 async function readLocaleSnapshot(page: Page): Promise<LocaleSnapshot> {
+  const [locale, geolocation] = await Promise.all([readLocaleEnvironmentSnapshot(page), readGeolocationSnapshot(page)]);
+  if ('error' in geolocation) {
+    throw new Error(geolocation.error);
+  }
+
+  return {
+    ...locale,
+    geolocation,
+  };
+}
+
+async function readLocaleEnvironmentSnapshot(page: Page): Promise<LocaleEnvironmentSnapshot> {
+  return page.evaluate(() => ({
+    language: navigator.language,
+    languages: [...navigator.languages],
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  }));
+}
+
+async function readGeolocationSnapshot(page: Page): Promise<GeolocationSnapshot | GeolocationErrorSnapshot> {
   return page.evaluate(
-    () =>
-      new Promise<LocaleSnapshot>((resolve, reject) => {
+    ({ timeoutMs }) =>
+      new Promise<GeolocationSnapshot | GeolocationErrorSnapshot>((resolve) => {
+        const timeoutId = window.setTimeout(() => {
+          resolve({ error: `Geolocation did not respond within ${timeoutMs}ms.` });
+        }, timeoutMs);
+
         navigator.geolocation.getCurrentPosition(
           (position) => {
+            window.clearTimeout(timeoutId);
             resolve({
-              language: navigator.language,
-              languages: [...navigator.languages],
-              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-              geolocation: {
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                accuracy: position.coords.accuracy,
-              },
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
             });
           },
-          (error) => reject(new Error(error.message)),
+          (error) => {
+            window.clearTimeout(timeoutId);
+            resolve({ error: error.message });
+          },
+          { timeout: timeoutMs },
         );
       }),
+    { timeoutMs: GEOLOCATION_READ_TIMEOUT_MS },
   );
 }
 
@@ -193,19 +227,35 @@ async function expectEarlySpoofedLocale(page: Page): Promise<void> {
 
 async function expectSpoofedLocale(page: Page): Promise<void> {
   await expect
-    .poll(() => readLocaleSnapshot(page), {
+    .poll(() => readLocaleEnvironmentSnapshot(page), {
       timeout: 10000,
     })
     .toEqual({
       language: 'ja-JP',
       languages: ['ja-JP', 'ja'],
       timezone: 'Asia/Tokyo',
-      geolocation: {
-        latitude: 35.6895,
-        longitude: 139.6917,
-        accuracy: GEOLOCATION_ACCURACY_METERS,
-      },
     });
+
+  await expect
+    .poll(() => readGeolocationSnapshot(page), {
+      timeout: 10000,
+    })
+    .toEqual({
+      latitude: 35.6895,
+      longitude: 139.6917,
+      accuracy: GEOLOCATION_ACCURACY_METERS,
+    });
+
+  await expect(readLocaleSnapshot(page)).resolves.toEqual({
+    language: 'ja-JP',
+    languages: ['ja-JP', 'ja'],
+    timezone: 'Asia/Tokyo',
+    geolocation: {
+      latitude: 35.6895,
+      longitude: 139.6917,
+      accuracy: GEOLOCATION_ACCURACY_METERS,
+    },
+  });
 }
 
 test('spoofs page language, timezone, and geolocation from the active locale profile', async ({}, testInfo) => {
