@@ -26,6 +26,7 @@ Create or modify these files:
 
 - Create: `.gitignore` for generated build, dependency, coverage, and WXT output directories.
 - Create: `package.json` for scripts and dependencies.
+- Create: `pnpm-workspace.yaml` for pnpm dependency build-script approvals.
 - Create: `tsconfig.json` for TypeScript strict mode and WXT-generated types.
 - Create: `wxt.config.ts` for React Vite plugin, manifest metadata, permissions, and host permissions.
 - Create: `vitest.config.ts` for WXT's Vitest plugin and test environment.
@@ -54,6 +55,7 @@ Create or modify these files:
 - Create: `tsconfig.json`
 - Create: `wxt.config.ts`
 - Create: `vitest.config.ts`
+- Create: `pnpm-workspace.yaml`
 
 - [ ] **Step 1: Create `.gitignore`**
 
@@ -78,6 +80,7 @@ Write:
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.9.0",
   "scripts": {
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
@@ -97,7 +100,7 @@ Write:
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^4.0.0",
+    "@vitejs/plugin-react": "^6.0.3",
     "typescript": "^5.0.0",
     "vitest": "^2.0.0",
     "wxt": "^0.20.27"
@@ -166,39 +169,50 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 6: Install dependencies**
+- [ ] **Step 6: Create `pnpm-workspace.yaml`**
+
+Write:
+
+```yaml
+allowBuilds:
+  esbuild: true
+  spawn-sync: true
+```
+
+- [ ] **Step 7: Install dependencies**
 
 Run:
 
 ```bash
-npm install
+pnpm install
 ```
 
-Expected: `node_modules/` and `package-lock.json` are created, and npm exits with code 0.
+Expected: `node_modules/` and `pnpm-lock.yaml` are created, and pnpm exits with code 0.
 
-- [ ] **Step 7: Prepare WXT generated types**
+- [ ] **Step 8: Verify dependency graph and WXT CLI**
 
 Run:
 
 ```bash
-npm run typecheck
+pnpm peers check
 ```
 
-Expected first run may fail if `.wxt/tsconfig.json` has not been generated. If it fails with a missing `.wxt/tsconfig.json`, run:
-
-```bash
-npx wxt prepare
-npm run typecheck
-```
-
-Expected after prepare: TypeScript runs and reports source-file errors only if later tasks have not created referenced files yet.
-
-- [ ] **Step 8: Commit tooling**
+Expected: `No peer dependency issues found`.
 
 Run:
 
 ```bash
-git add .gitignore package.json package-lock.json tsconfig.json wxt.config.ts vitest.config.ts
+pnpm exec wxt --version
+```
+
+Expected: prints the installed WXT version. Full `pnpm typecheck` runs after entrypoints exist because WXT needs at least one entrypoint to generate `.wxt/tsconfig.json`.
+
+- [ ] **Step 9: Commit tooling**
+
+Run:
+
+```bash
+git add .gitignore package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json wxt.config.ts vitest.config.ts
 git commit -m "chore: add WXT React TypeScript tooling"
 ```
 
@@ -341,7 +355,7 @@ describe('runtime responses', () => {
 Run:
 
 ```bash
-npm test -- src/core/rules.test.ts src/shared/messages.test.ts
+pnpm test -- src/core/rules.test.ts src/shared/messages.test.ts
 ```
 
 Expected: fail because `src/shared/defaults.ts`, `src/shared/types.ts`, `src/core/rules.ts`, and `src/shared/messages.ts` do not exist yet.
@@ -629,7 +643,7 @@ export function createErrorResponse<T = never>(code: string, message: string): R
 Run:
 
 ```bash
-npm test -- src/core/rules.test.ts src/shared/messages.test.ts
+pnpm test -- src/core/rules.test.ts src/shared/messages.test.ts
 ```
 
 Expected: PASS.
@@ -716,7 +730,7 @@ describe('settings storage', () => {
 Run:
 
 ```bash
-npm test -- src/storage/settings.test.ts
+pnpm test -- src/storage/settings.test.ts
 ```
 
 Expected: fail because `src/storage/settings.ts` does not exist.
@@ -812,7 +826,7 @@ export async function saveLastIpCheck(result: IpCheckResult): Promise<void> {
 Run:
 
 ```bash
-npm test -- src/storage/settings.test.ts
+pnpm test -- src/storage/settings.test.ts
 ```
 
 Expected: PASS.
@@ -936,7 +950,7 @@ describe('checkCurrentExit', () => {
 Run:
 
 ```bash
-npm test -- src/ip-check/checker.test.ts
+pnpm test -- src/ip-check/checker.test.ts
 ```
 
 Expected: fail because `src/ip-check/providers.ts` and `src/ip-check/checker.ts` do not exist.
@@ -1081,7 +1095,7 @@ export async function checkCurrentExit(provider: IpCheckProvider, timeoutMs: num
 Run:
 
 ```bash
-npm test -- src/ip-check/checker.test.ts
+pnpm test -- src/ip-check/checker.test.ts
 ```
 
 Expected: PASS.
@@ -1200,7 +1214,7 @@ export default defineContentScript({
 Run:
 
 ```bash
-npm run typecheck
+pnpm typecheck
 ```
 
 Expected: PASS.
@@ -1513,7 +1527,7 @@ dd {
 Run:
 
 ```bash
-npm run typecheck
+pnpm typecheck
 ```
 
 Expected: PASS.
@@ -1799,7 +1813,7 @@ select {
 Run:
 
 ```bash
-npm run typecheck
+pnpm typecheck
 ```
 
 Expected: PASS.
@@ -1848,19 +1862,19 @@ WXT + React + TypeScript browser extension scaffold for Chrome, Edge, and Firefo
 Install dependencies:
 
 ```bash
-npm install
+pnpm install
 ```
 
 Start the Chromium development build:
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Start the Firefox development build:
 
 ```bash
-npm run dev:firefox
+pnpm dev:firefox
 ```
 
 ## Build
@@ -1868,13 +1882,13 @@ npm run dev:firefox
 Build Chrome and Edge output:
 
 ```bash
-npm run build:chrome
+pnpm build:chrome
 ```
 
 Build Firefox output:
 
 ```bash
-npm run build:firefox
+pnpm build:firefox
 ```
 
 WXT writes browser output under `.output/`.
@@ -1884,13 +1898,13 @@ WXT writes browser output under `.output/`.
 Run unit tests:
 
 ```bash
-npm test
+pnpm test
 ```
 
 Run TypeScript checks:
 
 ```bash
-npm run typecheck
+pnpm typecheck
 ```
 
 ## Loading The Extension
@@ -1913,7 +1927,7 @@ Firefox:
 Run:
 
 ```bash
-npm test
+pnpm test
 ```
 
 Expected: PASS for all tests.
@@ -1923,7 +1937,7 @@ Expected: PASS for all tests.
 Run:
 
 ```bash
-npm run typecheck
+pnpm typecheck
 ```
 
 Expected: PASS.
@@ -1933,7 +1947,7 @@ Expected: PASS.
 Run:
 
 ```bash
-npm run build:chrome
+pnpm build:chrome
 ```
 
 Expected: WXT exits with code 0 and writes Chrome output under `.output/`.
@@ -1943,7 +1957,7 @@ Expected: WXT exits with code 0 and writes Chrome output under `.output/`.
 Run:
 
 ```bash
-npm run build:firefox
+pnpm build:firefox
 ```
 
 Expected: WXT exits with code 0 and writes Firefox output under `.output/`.
