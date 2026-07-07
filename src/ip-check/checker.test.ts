@@ -51,7 +51,7 @@ describe('checkCurrentExit', () => {
     const provider: IpCheckProvider = {
       id: 'test',
       checkCurrentExit: vi.fn(async () => ({
-        status: 'success',
+        status: 'success' as const,
         providerId: 'test',
         checkedAt: '2026-07-07T00:00:00.000Z',
         ip: '203.0.113.10',

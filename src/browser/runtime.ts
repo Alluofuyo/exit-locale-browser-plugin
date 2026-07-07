@@ -5,6 +5,6 @@ export async function sendRuntimeMessage<T>(message: RuntimeMessage): Promise<Ru
 }
 
 export function getLastRuntimeErrorMessage(): string | undefined {
-  const chromeRuntime = globalThis.chrome?.runtime;
+  const chromeRuntime = (globalThis as typeof globalThis & { chrome?: typeof browser }).chrome?.runtime;
   return chromeRuntime?.lastError?.message;
 }

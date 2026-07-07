@@ -6,7 +6,7 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["vitest/globals"]
+    "types": ["wxt/browser"]
   },
-  "include": ["entrypoints", "src", "wxt.config.ts", "vitest.config.ts"]
+  "include": [".wxt/wxt.d.ts", "entrypoints", "src", "wxt.config.ts", "vitest.config.ts"]
 }
