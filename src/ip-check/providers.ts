@@ -21,6 +21,26 @@ interface IpApiResponse {
   reason?: string;
 }
 
+interface IpWhoIsResponse {
+  success?: boolean;
+  message?: string;
+  ip?: string;
+  country?: string;
+  country_code?: string;
+  region?: string;
+  city?: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  connection?: {
+    asn?: number | string | null;
+    isp?: string;
+    org?: string;
+  };
+  timezone?: {
+    id?: string;
+  };
+}
+
 function toNumber(value: number | string | null | undefined): number | undefined {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : undefined;
@@ -78,6 +98,68 @@ function normalizeIpApiResponse(data: IpApiResponse): IpCheckResult {
   };
 }
 
+function normalizeIpWhoIsResponse(data: IpWhoIsResponse): IpCheckResult {
+  if (data.success === false || !data.ip) {
+    return {
+      status: 'failure',
+      providerId: 'ipwhois',
+      checkedAt: new Date().toISOString(),
+      error: {
+        code: 'invalid_response',
+        message: data.message ?? 'Fallback IP provider returned an invalid response.',
+      },
+    };
+  }
+
+  const asn = data.connection?.asn;
+  return {
+    status: 'success',
+    providerId: 'ipwhois',
+    checkedAt: new Date().toISOString(),
+    ip: data.ip,
+    country: data.country,
+    countryCode: data.country_code,
+    region: data.region,
+    city: data.city,
+    isp: data.connection?.isp ?? data.connection?.org,
+    asn: asn == null ? undefined : String(asn),
+    timezone: data.timezone?.id,
+    latitude: toNumber(data.latitude),
+    longitude: toNumber(data.longitude),
+  };
+}
+
+function createHttpFailure(providerId: string, status: number): IpCheckResult {
+  return {
+    status: 'failure',
+    providerId,
+    checkedAt: new Date().toISOString(),
+    error: {
+      code: status === 429 ? 'rate_limited' : 'network_error',
+      message: `IP provider request failed with HTTP ${status}.`,
+    },
+  };
+}
+
+export const ipWhoIsProvider: IpCheckProvider = {
+  id: 'ipwhois',
+  async checkCurrentExit(signal: AbortSignal): Promise<IpCheckResult> {
+    const response = await fetch('https://ipwho.is/', {
+      signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return createHttpFailure('ipwhois', response.status);
+    }
+
+    const data = (await response.json()) as IpWhoIsResponse;
+    return normalizeIpWhoIsResponse(data);
+  },
+};
+
 export const ipApiProvider: IpCheckProvider = {
   id: 'ipapi',
   async checkCurrentExit(signal: AbortSignal): Promise<IpCheckResult> {
@@ -89,25 +171,29 @@ export const ipApiProvider: IpCheckProvider = {
     });
 
     if (!response.ok) {
-      return {
-        status: 'failure',
-        providerId: 'ipapi',
-        checkedAt: new Date().toISOString(),
-        error: {
-          code: response.status === 429 ? 'rate_limited' : 'network_error',
-          message: `IP provider request failed with HTTP ${response.status}.`,
-        },
-      };
+      const failure = createHttpFailure('ipapi', response.status);
+      const fallback = await ipWhoIsProvider.checkCurrentExit(signal);
+      return fallback.status === 'success' ? fallback : failure;
     }
 
     const data = (await response.json()) as IpApiResponse;
-    return normalizeIpApiResponse(data);
+    const result = normalizeIpApiResponse(data);
+    if (result.status === 'success') {
+      return result;
+    }
+
+    const fallback = await ipWhoIsProvider.checkCurrentExit(signal);
+    return fallback.status === 'success' ? fallback : result;
   },
 };
 
 export function getIpCheckProvider(providerId: string): IpCheckProvider | undefined {
   if (providerId === ipApiProvider.id) {
     return ipApiProvider;
+  }
+
+  if (providerId === ipWhoIsProvider.id) {
+    return ipWhoIsProvider;
   }
 
   return undefined;

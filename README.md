@@ -12,7 +12,7 @@ WXT + React + TypeScript browser extension scaffold for Chrome, Edge, and Firefo
 - Recommended language, timezone, and geolocation spoofing settings based on the latest exit IP
 - Vitest coverage for core logic
 
-The default exit IP provider contacts `https://ipapi.co/json/`. That provider can observe the network exit IP used for the request.
+The default exit IP provider contacts `https://ipapi.co/json/` and falls back to `https://ipwho.is/` when the primary provider fails. Those providers can observe the network exit IP used for the request.
 The recommendation uses the provider's timezone, languages, latitude, and longitude fields when available, and falls back to country-based language defaults when needed.
 See [PRIVACY.md](PRIVACY.md) for the data-use summary.
 

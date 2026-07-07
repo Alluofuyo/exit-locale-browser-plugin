@@ -125,7 +125,8 @@ export function App() {
               })
             }
           >
-            <option value="ipapi">ipapi.co</option>
+            <option value="ipapi">ipapi.co with ipwho.is fallback</option>
+            <option value="ipwhois">ipwho.is</option>
           </select>
         </label>
 
