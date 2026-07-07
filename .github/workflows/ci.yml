@@ -32,28 +32,28 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Unit tests - messages
-        run: pnpm exec vitest run src/shared/messages.test.ts --reporter=verbose
+        run: node scripts/run-ci-test.mjs src/shared/messages.test.ts
 
       - name: Unit tests - rules
-        run: pnpm exec vitest run src/core/rules.test.ts --reporter=verbose
+        run: node scripts/run-ci-test.mjs src/core/rules.test.ts
 
       - name: Unit tests - locale recommendation
-        run: pnpm exec vitest run src/core/locale-recommendation.test.ts --reporter=verbose
+        run: node scripts/run-ci-test.mjs src/core/locale-recommendation.test.ts
 
       - name: Unit tests - settings editor
-        run: pnpm exec vitest run src/options/settings-editor.test.ts --reporter=verbose
+        run: node scripts/run-ci-test.mjs src/options/settings-editor.test.ts
 
       - name: Unit tests - IP checker
-        run: pnpm exec vitest run src/ip-check/checker.test.ts --reporter=verbose
+        run: node scripts/run-ci-test.mjs src/ip-check/checker.test.ts
 
       - name: Unit tests - IP providers
-        run: pnpm exec vitest run src/ip-check/providers.test.ts --reporter=verbose
+        run: node scripts/run-ci-test.mjs src/ip-check/providers.test.ts
 
       - name: Unit tests - locale spoofing
-        run: pnpm exec vitest run src/content/locale-spoofing.test.ts --reporter=verbose
+        run: node scripts/run-ci-test.mjs src/content/locale-spoofing.test.ts
 
       - name: Unit tests - storage
-        run: pnpm exec vitest run src/storage/settings.test.ts --reporter=verbose
+        run: node scripts/run-ci-test.mjs src/storage/settings.test.ts
 
       - name: Typecheck
         run: pnpm typecheck
