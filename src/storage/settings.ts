@@ -16,9 +16,7 @@ export function isExtensionSettings(value: unknown): value is ExtensionSettings 
   return (
     value.schemaVersion === 1 &&
     typeof value.enabled === 'boolean' &&
-    typeof value.defaultProxyProfileId === 'string' &&
     typeof value.defaultLocaleProfileId === 'string' &&
-    Array.isArray(value.proxyProfiles) &&
     Array.isArray(value.localeProfiles) &&
     Array.isArray(value.siteRules) &&
     isObject(value.ipCheck)

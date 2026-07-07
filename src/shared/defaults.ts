@@ -3,15 +3,7 @@ import type { ExtensionSettings, IpCheckResult } from './types';
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   schemaVersion: 1,
   enabled: true,
-  defaultProxyProfileId: 'direct',
   defaultLocaleProfileId: 'default',
-  proxyProfiles: [
-    {
-      id: 'direct',
-      name: 'Direct connection',
-      mode: 'direct',
-    },
-  ],
   localeProfiles: [
     {
       id: 'default',

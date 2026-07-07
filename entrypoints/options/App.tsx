@@ -57,7 +57,7 @@ export function App() {
   return (
     <main className="options">
       <header>
-        <h1>Locale Proxy Settings</h1>
+        <h1>Exit Locale Settings</h1>
         {saved && <span className="saved">Saved</span>}
       </header>
 

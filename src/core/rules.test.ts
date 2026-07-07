@@ -9,7 +9,6 @@ describe('matchesSiteRule', () => {
       id: 'rule-1',
       enabled: true,
       hostnamePattern: 'Example.COM',
-      proxyProfileId: 'direct',
       localeProfileId: 'default',
     };
 
@@ -22,7 +21,6 @@ describe('matchesSiteRule', () => {
       id: 'rule-2',
       enabled: true,
       hostnamePattern: '*.example.com',
-      proxyProfileId: 'direct',
       localeProfileId: 'default',
     };
 
@@ -37,7 +35,6 @@ describe('resolveEffectiveRule', () => {
     const result = resolveEffectiveRule(DEFAULT_SETTINGS, 'https://unknown.test');
 
     expect(result.url).toBe('https://unknown.test');
-    expect(result.proxyProfile.id).toBe('direct');
     expect(result.localeProfile.id).toBe('default');
     expect(result.siteRule).toBeUndefined();
   });
@@ -50,14 +47,12 @@ describe('resolveEffectiveRule', () => {
           id: 'disabled',
           enabled: false,
           hostnamePattern: 'example.com',
-          proxyProfileId: 'direct',
           localeProfileId: 'default',
         },
         {
           id: 'enabled',
           enabled: true,
           hostnamePattern: 'example.com',
-          proxyProfileId: 'direct',
           localeProfileId: 'default',
         },
       ],

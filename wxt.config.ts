@@ -7,12 +7,12 @@ export default defineConfig({
   }),
   manifest: (env) => {
     const manifest = {
-      name: 'Locale Proxy Browser Plugin',
-      description: 'Inspect current exit IP and prepare browser proxy and locale rules.',
+      name: 'Exit Locale',
+      description: 'Inspect current exit IP and apply matching language, timezone, and geolocation spoofing.',
       permissions: ['storage', 'tabs'],
       host_permissions: ['https://ipapi.co/*'],
       action: {
-        default_title: 'Locale Proxy',
+        default_title: 'Exit Locale',
       },
     };
 
@@ -21,7 +21,7 @@ export default defineConfig({
         ...manifest,
         browser_specific_settings: {
           gecko: {
-            id: 'locale-proxy-browser-plugin@example.org',
+            id: 'exit-locale-browser-plugin@example.org',
             data_collection_permissions: {
               required: ['locationInfo'],
             },

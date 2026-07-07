@@ -1,13 +1,3 @@
-export type ProxyMode = 'direct' | 'system' | 'manual';
-
-export interface ProxyProfile {
-  id: string;
-  name: string;
-  mode: ProxyMode;
-  host?: string;
-  port?: number;
-}
-
 export interface LocaleProfile {
   id: string;
   name: string;
@@ -21,7 +11,6 @@ export interface SiteRule {
   id: string;
   enabled: boolean;
   hostnamePattern: string;
-  proxyProfileId: string;
   localeProfileId: string;
 }
 
@@ -35,9 +24,7 @@ export interface IpCheckSettings {
 export interface ExtensionSettings {
   schemaVersion: 1;
   enabled: boolean;
-  defaultProxyProfileId: string;
   defaultLocaleProfileId: string;
-  proxyProfiles: ProxyProfile[];
   localeProfiles: LocaleProfile[];
   siteRules: SiteRule[];
   ipCheck: IpCheckSettings;
@@ -46,7 +33,6 @@ export interface ExtensionSettings {
 export interface EffectiveRule {
   url: string;
   enabled: boolean;
-  proxyProfile: ProxyProfile;
   localeProfile: LocaleProfile;
   siteRule?: SiteRule;
 }

@@ -1,4 +1,4 @@
-# Locale Proxy Browser Plugin
+# Exit Locale Browser Plugin
 
 WXT + React + TypeScript browser extension scaffold for Chrome, Edge, and Firefox.
 

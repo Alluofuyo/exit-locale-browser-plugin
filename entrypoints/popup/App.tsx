@@ -119,7 +119,7 @@ export function App() {
     return (
       <main className="popup">
         <header>
-          <h1>Locale Proxy</h1>
+          <h1>Exit Locale</h1>
         </header>
         <p className="error">{state.message}</p>
         <button type="button" onClick={() => void load(true)}>
@@ -136,7 +136,7 @@ export function App() {
   return (
     <main className="popup">
       <header>
-        <h1>Locale Proxy</h1>
+        <h1>Exit Locale</h1>
         <span className={settings.enabled ? 'status enabled' : 'status disabled'}>
           {settings.enabled ? 'Enabled' : 'Disabled'}
         </span>

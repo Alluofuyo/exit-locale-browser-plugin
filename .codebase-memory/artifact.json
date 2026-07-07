@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
-    "commit": "56d20cfa0523558999a3f7dbcf63900e8a2b9324",
-    "indexed_at": "2026-07-07T11:19:47Z",
+    "commit": "f787bcf510feba282573913cea76318517f7af5e",
+    "indexed_at": "2026-07-07T11:39:51Z",
     "project": "home-alluofuyo-codes-others-locale_proxy_browser_plugin",
-    "nodes": 212,
-    "edges": 281,
-    "original_size": 2097152,
-    "compressed_size": 152075,
+    "nodes": 244,
+    "edges": 449,
+    "original_size": 2162688,
+    "compressed_size": 186863,
     "compression_level": 3
 }
