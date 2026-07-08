@@ -2,9 +2,17 @@ name: Release Packages
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to publish, for example v0.1.0. Defaults to package.json version when empty.'
+        required: false
+        type: string
   push:
     tags:
       - v*
+
+permissions:
+  contents: write
 
 jobs:
   package:
@@ -14,6 +22,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -29,14 +40,65 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Resolve release metadata
+        id: release
+        shell: bash
+        run: |
+          input_tag="${{ github.event.inputs.tag }}"
+
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME}"
+          elif [ -n "${input_tag}" ]; then
+            tag="${input_tag}"
+          else
+            version="$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")"
+            tag="v${version}"
+          fi
+
+          if [[ "${tag}" != v* ]]; then
+            echo "::error::Release tag must start with v. Got: ${tag}"
+            exit 1
+          fi
+
+          version="${tag#v}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "archive_prefix=exit-locale-browser-plugin-${version}" >> "${GITHUB_OUTPUT}"
+
       - name: Package Chrome extension
         run: pnpm zip:chrome
 
       - name: Package Firefox extension
         run: pnpm zip:firefox
 
+      - name: Create source archives
+        shell: bash
+        run: |
+          archive_prefix="${{ steps.release.outputs.archive_prefix }}"
+
+          mkdir -p .output/release
+          git archive --format=tar --prefix="${archive_prefix}/" HEAD | gzip -n > ".output/release/${archive_prefix}-source.tar.gz"
+          git archive --format=zip --prefix="${archive_prefix}/" --output=".output/release/${archive_prefix}-source.zip" HEAD
+
       - name: Upload extension packages
         uses: actions/upload-artifact@v4
         with:
-          name: extension-packages
-          path: .output/*.zip
+          name: release-packages
+          path: |
+            .output/*-chrome.zip
+            .output/*-firefox.zip
+            .output/release/*.tar.gz
+            .output/release/*.zip
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.tag }}
+          name: Exit Locale ${{ steps.release.outputs.tag }}
+          generate_release_notes: true
+          make_latest: true
+          files: |
+            .output/*-chrome.zip
+            .output/*-firefox.zip
+            .output/release/*.tar.gz
+            .output/release/*.zip

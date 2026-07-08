@@ -59,6 +59,19 @@ pnpm zip:chrome
 pnpm zip:firefox
 ```
 
+## Release
+
+Publish a version by pushing a `v*` tag:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow builds Chrome and Firefox extension ZIP packages, creates source archives (`.tar.gz` and `.zip`), uploads them as workflow artifacts, and attaches them to a GitHub Release.
+
+You can also run the `Release Packages` workflow manually from GitHub Actions. Provide an existing `v*` tag, or leave the tag input empty to use the `package.json` version.
+
 ## Tests
 
 Run unit tests:
