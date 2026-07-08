@@ -309,7 +309,8 @@ test('spoofs page language, timezone, and geolocation from the active locale pro
     await expectEarlySpoofedLocale(page);
     await expectSpoofedLocale(page);
   } finally {
-    await closeServer(server);
+    // Close the browser first so HTTP keep-alive sockets do not block server.close in CI.
     await context.close();
+    await closeServer(server);
   }
 });
