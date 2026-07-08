@@ -16,6 +16,12 @@ The default exit IP provider contacts `https://ipapi.co/json/` and falls back to
 The recommendation uses the provider's timezone, languages, latitude, and longitude fields when available, and falls back to country-based language defaults when needed.
 See [PRIVACY.md](PRIVACY.md) for the data-use summary.
 
+## Screenshots
+
+| Popup | Options |
+| --- | --- |
+| <img src="docs/images/popup.png" alt="Exit Locale popup showing current exit IP and locale recommendation" width="340"> | <img src="docs/images/options.png" alt="Exit Locale options page showing provider and spoofing profile settings" width="420"> |
+
 ## Development
 
 Install dependencies:
