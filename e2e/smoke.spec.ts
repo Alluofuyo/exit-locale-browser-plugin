@@ -8,6 +8,7 @@ import type { ExtensionSettings } from '../src/shared/types';
 const EXTENSION_SETTINGS_KEY = 'extensionSettings';
 const GEOLOCATION_ACCURACY_METERS = 50000;
 const GEOLOCATION_READ_TIMEOUT_MS = 1000;
+const SERVICE_WORKER_TIMEOUT_MS = 10000;
 
 const smokeSettings: ExtensionSettings = {
   schemaVersion: 1,
@@ -81,9 +82,32 @@ async function getExtensionServiceWorker(context: BrowserContext): Promise<Worke
     return existingWorker;
   }
 
-  return context.waitForEvent('serviceworker', {
-    predicate: (worker) => worker.url().startsWith('chrome-extension://'),
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const workerUrls = context.serviceWorkers().map((worker) => worker.url());
+      reject(
+        new Error(
+          `Extension service worker did not start within ${SERVICE_WORKER_TIMEOUT_MS}ms. Existing workers: ${
+            workerUrls.length > 0 ? workerUrls.join(', ') : 'none'
+          }`,
+        ),
+      );
+    }, SERVICE_WORKER_TIMEOUT_MS);
   });
+
+  try {
+    return await Promise.race([
+      context.waitForEvent('serviceworker', {
+        predicate: (worker) => worker.url().startsWith('chrome-extension://'),
+      }),
+      timeout,
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 async function seedExtensionSettings(serviceWorker: Worker, settings: ExtensionSettings): Promise<void> {
@@ -259,8 +283,11 @@ async function expectSpoofedLocale(page: Page): Promise<void> {
 }
 
 test('spoofs page language, timezone, and geolocation from the active locale profile', async ({}, testInfo) => {
+  testInfo.setTimeout(60000);
+
   const context = await chromium.launchPersistentContext(testInfo.outputPath('user-data-dir'), {
     channel: 'chromium',
+    headless: process.env.E2E_HEADLESS === 'false' ? false : undefined,
     args: [
       `--disable-extensions-except=${getExtensionPath()}`,
       `--load-extension=${getExtensionPath()}`,
